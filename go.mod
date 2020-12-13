@@ -4,11 +4,13 @@ go 1.14
 
 require (
 	cloud.google.com/go v0.72.0 // indirect
+	fknsrs.biz/p/ottoext v0.0.0-20170408110602-5871ae9499f3
 	github.com/Azure/azure-sdk-for-go v49.0.0+incompatible
 	github.com/Azure/go-autorest/autorest v0.11.12 // indirect
 	github.com/Azure/go-autorest/autorest/azure/auth v0.5.3
 	github.com/Azure/go-autorest/autorest/to v0.4.0
 	github.com/DisposaBoy/JsonConfigReader v0.0.0-20201129172854-99cf318d67e7
+	github.com/GeertJohan/go.rice v1.0.1 // indirect
 	github.com/PuerkitoBio/goquery v1.6.0
 	github.com/TomOnTime/utfutil v0.0.0-20200626160131-0b0178852c8f
 	github.com/andreyvit/diff v0.0.0-20170406064948-c7f18ee00883

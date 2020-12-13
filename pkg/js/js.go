@@ -2,6 +2,7 @@ package js
 
 import (
 	"encoding/json"
+	"flag"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -10,6 +11,12 @@ import (
 
 	"github.com/robertkrimen/otto"              // load underscore js into vm by default
 	_ "github.com/robertkrimen/otto/underscore" // required by otto
+
+	"fknsrs.biz/p/ottoext/fetch"
+	"fknsrs.biz/p/ottoext/loop"
+	"fknsrs.biz/p/ottoext/process"
+	"fknsrs.biz/p/ottoext/promise"
+	"fknsrs.biz/p/ottoext/timers"
 
 	"github.com/StackExchange/dnscontrol/v3/models"
 	"github.com/StackExchange/dnscontrol/v3/pkg/printer"
@@ -35,6 +42,20 @@ func ExecuteJavascript(file string, devMode bool, variables map[string]string) (
 	currentDirectory = filepath.Dir(file)
 
 	vm := otto.New()
+	l := loop.New(vm)
+
+	if err := timers.Define(vm, l); err != nil {
+		return nil, err
+	}
+	if err := promise.Define(vm, l); err != nil {
+		return nil, err
+	}
+	if err := fetch.Define(vm, l); err != nil {
+		return nil, err
+	}
+	if err := process.Define(vm, flag.Args()); err != nil {
+		return nil, err
+	}
 
 	vm.Set("require", require)
 	vm.Set("REV", reverse)
@@ -47,12 +68,17 @@ func ExecuteJavascript(file string, devMode bool, variables map[string]string) (
 
 	helperJs := GetHelpers(devMode)
 	// run helper script to prime vm and initialize variables
-	if _, err := vm.Run(helperJs); err != nil {
+	if err := l.Eval(helperJs); err != nil {
 		return nil, err
 	}
 
 	// run user script
-	if _, err := vm.Run(script); err != nil {
+	if err := l.Eval(script); err != nil {
+		return nil, err
+	}
+
+	// wait for event loop to finish
+	if err := l.Run(); err != nil {
 		return nil, err
 	}
 
