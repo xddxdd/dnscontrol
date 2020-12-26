@@ -61,6 +61,7 @@ func ExecuteJavascript(file string, devMode bool, variables map[string]string) (
 	vm.Set("REV", reverse)
 	vm.Set("glob", listFiles) // used for require_glob()
 	vm.Set("PANIC", jsPanic)
+	vm.Set("readFile", readFile)
 
 	// add cli variables to otto
 	for key, value := range variables {
@@ -102,6 +103,45 @@ func ExecuteJavascript(file string, devMode bool, variables map[string]string) (
 // GetHelpers returns the filename of helpers.js, or the esc'ed version.
 func GetHelpers(devMode bool) string {
 	return _escFSMustString(devMode, "/helpers.js")
+}
+
+func readFile(call otto.FunctionCall) otto.Value {
+	if len(call.ArgumentList) != 1 {
+		throw(call.Otto, "read takes exactly one argument")
+	}
+	file := call.Argument(0).String() // The filename as given by the user
+
+	// relFile is the file we're actually going to pass to ReadFile().
+	// It defaults to the user-provided name unless it is relative.
+	relFile := file
+	cleanFile := filepath.Clean(filepath.Join(currentDirectory, file))
+	if strings.HasPrefix(file, ".") {
+		relFile = cleanFile
+	}
+
+	// Record the old currentDirectory so that we can return there.
+	currentDirectoryOld := currentDirectory
+	// Record the directory path leading up to the file we're about to require.
+	currentDirectory = filepath.Dir(cleanFile)
+
+	printer.Debugf("reading: %s (%s)\n", file, relFile)
+	// quick fix, by replacing to linux slashes, to make it work with windows paths too.
+	data, err := ioutil.ReadFile(filepath.ToSlash(relFile))
+
+	if err != nil {
+		throw(call.Otto, err.Error())
+	}
+
+	value, err := call.Otto.ToValue(string(data))
+
+	if err != nil {
+		throw(call.Otto, fmt.Sprintf("File %s: %s", filepath.Base(relFile), err.Error()))
+	}
+
+	// Pop back to the old directory.
+	currentDirectory = currentDirectoryOld
+
+	return value
 }
 
 func require(call otto.FunctionCall) otto.Value {
