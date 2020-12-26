@@ -60,6 +60,7 @@ func ExecuteJavascript(file string, devMode bool, variables map[string]string) (
 	vm.Set("require", require)
 	vm.Set("REV", reverse)
 	vm.Set("glob", listFiles) // used for require_glob()
+	vm.Set("PANIC", jsPanic)
 
 	// add cli variables to otto
 	for key, value := range variables {
@@ -238,8 +239,21 @@ func listFiles(call otto.FunctionCall) otto.Value {
 	return value
 }
 
+func jsPanic(call otto.FunctionCall) otto.Value {
+	if len(call.ArgumentList) != 1 {
+		throw(call.Otto, "PANIC takes exactly one argument")
+	}
+
+	message := call.Argument(0).String() // The filename as given by the user
+	throw(call.Otto, message)
+
+	v, _ := otto.ToValue(0)
+	return v
+}
+
 func throw(vm *otto.Otto, str string) {
-	panic(vm.MakeCustomError("Error", str))
+	fmt.Fprintln(os.Stderr, str)
+	os.Exit(1)
 }
 
 func reverse(call otto.FunctionCall) otto.Value {
