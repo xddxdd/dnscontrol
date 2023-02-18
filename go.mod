@@ -52,7 +52,7 @@ require (
 	github.com/transip/gotransip/v6 v6.17.0
 	github.com/urfave/cli/v2 v2.23.5
 	github.com/xddxdd/ottoext v0.0.0-20221109171055-210517fa4419
-	golang.org/x/net v0.2.0
+	golang.org/x/net v0.7.0
 	golang.org/x/oauth2 v0.2.0
 	google.golang.org/api v0.103.0
 	gopkg.in/ns1/ns1-go.v2 v2.7.2
@@ -155,8 +155,8 @@ require (
 	golang.org/x/crypto v0.1.0 // indirect
 	golang.org/x/mod v0.6.0 // indirect
 	golang.org/x/sync v0.1.0 // indirect
-	golang.org/x/sys v0.2.0 // indirect
-	golang.org/x/text v0.4.0 // indirect
+	golang.org/x/sys v0.5.0 // indirect
+	golang.org/x/text v0.7.0 // indirect
 	golang.org/x/time v0.0.0-20220922220347-f3bd1da661af // indirect
 	golang.org/x/tools v0.2.0 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
