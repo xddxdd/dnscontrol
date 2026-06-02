@@ -289,8 +289,9 @@ func runTests(t *testing.T, prv providers.DNSServiceProvider, domainName string,
 		// Abide by filter
 		// fmt.Printf("DEBUG testPermitted: prov=%q profile=%q\n", *providerFlag, *profileFlag)
 		if err := testPermitted(*profileFlag, *group); err != nil {
-			// t.Logf("%s: ***SKIPPED(%v)***", group.Desc, err)
-			makeChanges(t, prv, dc, tc("Empty"), fmt.Sprintf("%02d:%s ***SKIPPED(%v)***", gIdx, group.Desc, err), false, origConfig, nil)
+			t.Run(fmt.Sprintf("%02d:%s ***SKIPPED(%v)***:Empty", gIdx, group.Desc, err), func(t *testing.T) {
+				t.SkipNow()
+			})
 			continue
 		}
 
