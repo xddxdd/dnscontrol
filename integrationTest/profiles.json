@@ -363,6 +363,7 @@
   },
   "ROUTE53": {
     "KeyId": "$ROUTE53_KEY_ID",
+    "Region": "$ROUTE53_REGION",
     "SecretKey": "$ROUTE53_KEY",
     "TYPE": "ROUTE53",
     "domain": "$ROUTE53_DOMAIN"
