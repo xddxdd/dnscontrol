@@ -2,6 +2,7 @@ package models
 
 import (
 	"fmt"
+	"strings"
 	"sync"
 
 	"github.com/DNSControl/dnscontrol/v4/pkg/domaintags"
@@ -24,6 +25,7 @@ const (
 )
 
 // DomainConfig describes a DNS domain (technically a DNS zone).
+// Do not create your own `&models.DomainConfig{}`.  Use `models.NewDomainConfig(name)`.
 type DomainConfig struct {
 	NameRaw     string `json:"-"`    // name as entered by user in dnsconfig.js
 	Name        string `json:"name"` // NO trailing "."   Converted to IDN (punycode) early in the pipeline.
@@ -93,6 +95,16 @@ func (dc *DomainConfig) PostProcess() {
 	dc.Metadata[DomainUniqueName] = dc.UniqueName
 }
 
+func (dc *DomainConfig) PopulateNamesFromRaw(rawname string) {
+	dcn := domaintags.MakeDomainNameVarieties(rawname)
+	dc.Name = dcn.NameASCII
+	dc.Tag = dcn.Tag
+	dc.NameRaw = dcn.NameRaw
+	dc.NameUnicode = dcn.NameUnicode
+	dc.DisplayName = dcn.DisplayName
+	dc.UniqueName = dcn.UniqueName
+}
+
 // GetSplitHorizonNames returns the domain's name, uniquename, and tag.
 // Deprecated: use .Name, .Uniquename, and .Tag directly instead.
 func (dc *DomainConfig) GetSplitHorizonNames() (name, uniquename, tag string) {
@@ -128,6 +140,7 @@ func (dc *DomainConfig) Filter(f func(r *RecordConfig) bool) {
 // - Name
 // - NameFQDN
 // - Target (CNAME and MX only).
+// NOTE: This will go away when RCv3 is adopted.
 func (dc *DomainConfig) Punycode() error {
 	for _, rec := range dc.Records {
 		if rec.IsModernType() {
@@ -230,6 +243,18 @@ func (dc *DomainConfig) StorePopulateCorrections(providerName string, correction
 		dc.pendingPopulateCorrections = make(map[string][]*Correction, 1)
 	}
 	dc.pendingPopulateCorrections[providerName] = append(dc.pendingPopulateCorrections[providerName], corrections...)
+}
+
+func NewDomainConfig(name string) (*DomainConfig, error) {
+	if strings.HasSuffix(name, ".") {
+		return nil, fmt.Errorf("do not call NewDomainName with trailing dot: %q", name)
+	}
+	dc := &DomainConfig{
+		Metadata: map[string]string{}, // Initialize so that nil checking is not required later.
+	}
+	dc.PopulateNamesFromRaw(name)
+
+	return dc, nil
 }
 
 // GetPopulateCorrections returns zone corrections in a thread-safe way.
