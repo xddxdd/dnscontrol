@@ -1,6 +1,7 @@
 package bunnydns
 
 import (
+	"encoding/json"
 	"fmt"
 	"slices"
 
@@ -69,7 +70,7 @@ func (b *bunnydnsProvider) GetZoneRecordsCorrections(dc *models.DomainConfig, ex
 		return nil, 0, err
 	}
 
-	instructions, actualChangeCount, err := diff2.ByRecord(existing, dc, nil)
+	instructions, actualChangeCount, err := diff2.ByRecord(existing, dc, comparableFunc)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -144,4 +145,18 @@ func (b *bunnydnsProvider) mkDeleteCorrection(zoneID int64, oldRec *models.Recor
 			return b.deleteRecord(zoneID, existingID)
 		},
 	}
+}
+
+func comparableFunc(rec *models.RecordConfig) string {
+	if len(rec.Metadata) == 0 {
+		return ""
+	}
+
+	result, err := json.Marshal(rec.Metadata)
+	if err != nil {
+		printer.Warnf("BUNNY_DNS: Cannot serialize metadata of record %s", rec)
+		return ""
+	}
+
+	return string(result)
 }
