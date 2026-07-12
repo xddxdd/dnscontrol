@@ -51,6 +51,27 @@ These metadata fields can be set on individual `A` or `AAAA` records:
 - `bunny_geolocation_longitude`: The longitude coordinate of the server's location, as a string. Only used when `bunny_smart_routing_type` is `geographic`.
 - `bunny_latency_zone`: The Bunny.net datacenter region code closest to your server, e.g. `NY`. Only used when `bunny_smart_routing_type` is `latency`.
 
+  The valid region codes can be retrieved from Bunny's public region list API, which does not require an API key:
+
+  ```shell
+  curl https://api.bunny.net/region
+  ```
+
+  This returns a JSON array of region objects. The `RegionCode` field is the value to use for `bunny_latency_zone`. Only regions where `AllowLatencyRouting` is `true` are valid for latency routing. For example:
+
+  ```json
+  {
+    "Id": 2,
+    "Name": "NA: New York City, NY",
+    "RegionCode": "NY",
+    "ContinentCode": "NA",
+    "CountryCode": "US",
+    "AllowLatencyRouting": true
+  }
+  ```
+
+  See the [Region list API documentation](https://docs.bunny.net/api-reference/core/region/region-list) for full details.
+
 For more information, see the [Bunny DNS Smart Records documentation](https://docs.bunny.net/dns/records#smart-records).
 
 ### Health monitoring metadata
