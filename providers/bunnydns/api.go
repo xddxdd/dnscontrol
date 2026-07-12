@@ -50,6 +50,7 @@ type record struct {
 	GeolocationLatitude  *float64         `json:"GeolocationLatitude,omitempty"`
 	GeolocationLongitude *float64         `json:"GeolocationLongitude,omitempty"`
 	LatencyZone          string           `json:"LatencyZone,omitempty"`
+	MonitorType          monitorType      `json:"MonitorType,omitempty"`
 }
 
 type smartRoutingType int
@@ -58,6 +59,15 @@ const (
 	smartRoutingNone       smartRoutingType = 0
 	smartRoutingLatency    smartRoutingType = 1
 	smartRoutingGeographic smartRoutingType = 2
+)
+
+type monitorType int
+
+const (
+	monitorNone   monitorType = 0
+	monitorPing   monitorType = 1
+	monitorHTTP   monitorType = 2
+	monitorCustom monitorType = 3
 )
 
 type listZonesResponse struct {
