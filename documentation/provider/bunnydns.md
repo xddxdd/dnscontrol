@@ -163,7 +163,7 @@ If a domain does not exist in your Bunny account, DNSControl will automatically 
 ## Custom record types
 
 DNSControl supports only the custom record types listed below for Bunny DNS. Other Bunny-specific types
-(such as Script or Flatten) are not supported and will be ignored by DNSControl and left as-is.
+(such as Flatten) are not supported and will be ignored by DNSControl and left as-is.
 
 ### Redirect
 
@@ -182,6 +182,16 @@ You can configure Bunny's Pull Zone type with `BUNNY_DNS_PZ`. The target is the 
 {% code title="dnsconfig.js" %}
 ```javascript
     BUNNY_DNS_PZ("@", 12345),
+```
+{% endcode %}
+
+### Script
+
+You can configure Bunny's Script type with `BUNNY_DNS_SCRIPT`. The target is the Script ID:
+
+{% code title="dnsconfig.js" %}
+```javascript
+    BUNNY_DNS_SCRIPT("@", 12345),
 ```
 {% endcode %}
 

@@ -35,7 +35,6 @@ func (b *bunnydnsProvider) GetZoneRecords(dc *models.DomainConfig) (models.Recor
 	// Define a list of record types that are currently not supported by this provider.
 	unsupportedTypes := []recordType{
 		recordTypeFlatten,
-		recordTypeScript,
 	}
 
 	// Loop through all native records and convert them to standardized RecordConfigs

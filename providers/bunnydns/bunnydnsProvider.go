@@ -50,6 +50,7 @@ func init() {
 
 	providers.RegisterCustomRecordType("BUNNY_DNS_RDR", providerName, "")
 	providers.RegisterCustomRecordType("BUNNY_DNS_PZ", providerName, "")
+	providers.RegisterCustomRecordType("BUNNY_DNS_SCRIPT", providerName, "")
 
 	providers.RegisterCredsMetadata(providerName, providers.CredsMetadata{
 		DisplayName: "Bunny DNS",

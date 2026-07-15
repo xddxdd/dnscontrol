@@ -44,6 +44,7 @@ type record struct {
 	Port       uint16     `json:"Port"`
 	Tag        string     `json:"Tag"`
 	PullZoneID int64      `json:"PullZoneId,omitempty"`
+	ScriptID   int64      `json:"ScriptId,omitempty"`
 	LinkName   string     `json:"LinkName,omitempty"`
 
 	SmartRoutingType     smartRoutingType `json:"SmartRoutingType,omitempty"`

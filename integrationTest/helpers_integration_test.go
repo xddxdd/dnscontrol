@@ -451,6 +451,10 @@ func bunnyPullZone(name, pullZoneID string) *models.RecordConfig {
 	return makeRec(name, pullZoneID, "BUNNY_DNS_PZ")
 }
 
+func bunnyScript(name, scriptID string) *models.RecordConfig {
+	return makeRec(name, scriptID, "BUNNY_DNS_SCRIPT")
+}
+
 // func cfRedir(pattern, target string) *models.RecordConfig {
 // 	rec, err := rtypecontrol.NewRecordConfigFromRaw(rtypecontrol.FromRawOpts{
 // 		Type: "CF_REDIRECT",

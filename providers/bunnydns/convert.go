@@ -49,6 +49,15 @@ func fromRecordConfig(rc *models.RecordConfig) (*record, error) {
 		}
 		r.PullZoneID = pullZoneID
 		r.Value = ""
+	case recordTypeScript:
+		// When creating Script records, the API expects an integer ScriptId field,
+		// while the Value field should be empty.
+		scriptID, err := strconv.ParseInt(rc.GetTargetField(), 10, 64)
+		if err != nil {
+			return nil, fmt.Errorf("invalid Script ID for BUNNY_DNS_SCRIPT: %w", err)
+		}
+		r.ScriptID = scriptID
+		r.Value = ""
 	}
 
 	// While Bunny DNS does not use trailing dots, it still accepts and even preserves them for certain record types.
@@ -141,6 +150,12 @@ func toRecordConfig(domain string, r *record) (*models.RecordConfig, error) {
 		// When reading Pull Zone records, the API provides the PullZoneId in the LinkName field as string.
 		if r.LinkName == "" {
 			return nil, fmt.Errorf("missing Pull Zone ID (LinkName) for BUNNY_DNS_PZ")
+		}
+		err = rc.SetTarget(r.LinkName)
+	case "BUNNY_DNS_SCRIPT":
+		// When reading Script records, the API provides the ScriptId in the LinkName field as string.
+		if r.LinkName == "" {
+			return nil, fmt.Errorf("missing Script ID (LinkName) for BUNNY_DNS_SCRIPT")
 		}
 		err = rc.SetTarget(r.LinkName)
 	case "BUNNY_DNS_RDR":
@@ -242,7 +257,7 @@ func recordTypeFromString(t string) recordType {
 		return recordTypeCAA
 	case "PTR":
 		return recordTypePTR
-	case "SCRIPT":
+	case "BUNNY_DNS_SCRIPT":
 		return recordTypeScript
 	case "NS":
 		return recordTypeNS
@@ -284,7 +299,7 @@ func recordTypeToString(t recordType) string {
 	case recordTypePTR:
 		return "PTR"
 	case recordTypeScript:
-		return "SCRIPT"
+		return "BUNNY_DNS_SCRIPT"
 	case recordTypeNS:
 		return "NS"
 	case recordTypeSVCB:

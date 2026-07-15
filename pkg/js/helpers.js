@@ -1611,6 +1611,14 @@ var BUNNY_DNS_PZ = recordBuilder('BUNNY_DNS_PZ', {
         record.target = String(args.pullZoneId);
     },
 });
+
+var BUNNY_DNS_SCRIPT = recordBuilder('BUNNY_DNS_SCRIPT', {
+    args: [['name', _.isString], ['scriptId']],
+    transform: function (record, args, modifiers) {
+        record.name = args.name;
+        record.target = String(args.scriptId);
+    },
+});
 // LOC_BUILDER_DD takes an object:
 // label: The DNS label for the LOC record. (default: '@')
 // x: Decimal X coordinate.
