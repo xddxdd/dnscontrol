@@ -495,6 +495,12 @@ func bunnyPullZone(name, pullZoneID string) *models.RecordConfig {
 	return r
 }
 
+func bunnyScriptCode(name, code string) *models.RecordConfig {
+	r, err := globalDC.NewRecordConfig(name, 1, privatetypes.TypeBUNNYDNSSCRIPT, code)
+	panicOnErr(err)
+	return r
+}
+
 func aghAPassthrough(pattern, target string) *models.RecordConfig {
 	r, err := globalDC.NewRecordConfig(pattern, defaultTTL, privatetypes.TypeADGUARDHOMEAPASSTHROUGH, target)
 	panicOnErr(err)

@@ -2365,6 +2365,12 @@ func makeTests() []*TestGroup {
 			tc("Change PZ", bunnyPullZone("@", "6214615")),
 		),
 
+		testgroup("Bunny DNS Script",
+			only("BUNNY_DNS"),
+			tc("Create Script", bunnyScriptCode("@", "export default { async fetch() { return new Response('hello'); } };")),
+			tc("Change Script", bunnyScriptCode("@", "export default { async fetch() { return new Response('world'); } };")),
+		),
+
 		// HEDNS: Dynamic DNS
 
 		testgroup("HEDNS_DYNAMIC A lifecycle",

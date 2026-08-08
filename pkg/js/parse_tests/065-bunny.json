@@ -21,6 +21,21 @@
           "typenum": 65287
         },
         {
+          "comparablev3": "\"export default {};\"",
+          "filepos": "[line:6:5]",
+          "meta": {
+            "orig_custom_type": "BUNNY_DNS_SCRIPT"
+          },
+          "name": "fn",
+          "name_unicode": "fn",
+          "rdata": {
+            "Code": "export default {};"
+          },
+          "ttl": 300,
+          "type": "BUNNY_DNS_SCRIPT",
+          "typenum": 65323
+        },
+        {
           "comparablev3": "\"https://example.com\"",
           "filepos": "[line:5:5]",
           "meta": {

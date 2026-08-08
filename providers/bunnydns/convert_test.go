@@ -1,6 +1,7 @@
 package bunnydns
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/DNSControl/dnscontrol/v5/models"
@@ -43,7 +44,7 @@ func TestToRecordConfigRedirect(t *testing.T) {
 	}
 
 	dc := models.MustNewDomainConfig("example.com")
-	rc, err := toRecordConfig(dc, rec)
+	rc, err := (&bunnydnsProvider{}).toRecordConfig(dc, rec)
 	if err != nil {
 		t.Fatalf("toRecordConfig returned error: %v", err)
 	}
@@ -60,8 +61,7 @@ func TestToRecordConfigPullZoneLinkName(t *testing.T) {
 		LinkName: "12345",
 	}
 
-	dc := models.MustNewDomainConfig("example.com")
-	rc, err := toRecordConfig(dc, rec)
+	rc, err := (&bunnydnsProvider{}).toRecordConfig(models.MustNewDomainConfig("example.com"), rec)
 	if err != nil {
 		t.Fatalf("toRecordConfig returned error: %v", err)
 	}
@@ -84,10 +84,100 @@ func TestToRecordConfigPullZoneMissingID(t *testing.T) {
 		TTL:  300,
 	}
 
-	dc := models.MustNewDomainConfig("example.com")
-	_, err := toRecordConfig(dc, rec)
+	_, err := (&bunnydnsProvider{}).toRecordConfig(models.MustNewDomainConfig("example.com"), rec)
 	if err == nil {
 		t.Fatalf("expected error for missing Pull Zone LinkName")
+	}
+}
+
+func TestFromRecordConfigScript(t *testing.T) {
+	// Scripts are referenced by name and code only; the script ID is resolved
+	// during deployment (see recordForDeployment), not during conversion.
+	dc := models.MustNewDomainConfig("example.com")
+	rc := dc.MustNewRecordConfig("cdn", 300, "BUNNY_DNS_SCRIPT", "export default { async fetch() { return new Response('hello'); } };")
+
+	rec, err := fromRecordConfig(rc)
+	if err != nil {
+		t.Fatalf("fromRecordConfig returned error: %v", err)
+	}
+	if rec.ScriptID != 0 {
+		t.Fatalf("expected ScriptId=0 (resolved during deployment); got=%d", rec.ScriptID)
+	}
+	if rec.Value != "" {
+		t.Fatalf("expected empty Value; got=%q", rec.Value)
+	}
+}
+
+func TestToRecordConfigScript(t *testing.T) {
+	b := &bunnydnsProvider{
+		scripts: map[int64]*script{
+			5: {ID: 5, Name: "dnscontrol-cdn.example.com"},
+		},
+		codes: map[int64]string{
+			5: "export default { async fetch() { return new Response('hello'); } };",
+		},
+	}
+	rec := &record{
+		Type:     recordTypeScript,
+		Name:     "cdn",
+		TTL:      300,
+		LinkName: "5",
+	}
+
+	rc, err := b.toRecordConfig(models.MustNewDomainConfig("example.com"), rec)
+	if err != nil {
+		t.Fatalf("toRecordConfig returned error: %v", err)
+	}
+	if rc.Type != "BUNNY_DNS_SCRIPT" {
+		t.Fatalf("expected type BUNNY_DNS_SCRIPT; got=%s", rc.Type)
+	}
+	if rc.GetTargetField() != "export default { async fetch() { return new Response('hello'); } };" {
+		t.Fatalf("expected script code as target; got=%s", rc.GetTargetField())
+	}
+	if rc.GetLabel() != "cdn" {
+		t.Fatalf("expected label cdn; got=%s", rc.GetLabel())
+	}
+}
+
+func TestToRecordConfigScriptByName(t *testing.T) {
+	// Fallback: LinkName may be the script name instead of the ID.
+	b := &bunnydnsProvider{
+		scripts: map[int64]*script{
+			5: {ID: 5, Name: "dnscontrol-cdn.example.com"},
+		},
+		codes: map[int64]string{
+			5: "export default { async fetch() { return new Response('hello'); } };",
+		},
+	}
+	rec := &record{
+		Type:     recordTypeScript,
+		Name:     "cdn",
+		TTL:      300,
+		LinkName: "dnscontrol-cdn.example.com",
+	}
+
+	rc, err := b.toRecordConfig(models.MustNewDomainConfig("example.com"), rec)
+	if err != nil {
+		t.Fatalf("toRecordConfig returned error: %v", err)
+	}
+	if rc.Type != "BUNNY_DNS_SCRIPT" {
+		t.Fatalf("expected type BUNNY_DNS_SCRIPT; got=%s", rc.Type)
+	}
+	if rc.GetTargetField() != "export default { async fetch() { return new Response('hello'); } };" {
+		t.Fatalf("expected script code as target; got=%s", rc.GetTargetField())
+	}
+}
+
+func TestToRecordConfigScriptMissingID(t *testing.T) {
+	rec := &record{
+		Type: recordTypeScript,
+		Name: "cdn",
+		TTL:  300,
+	}
+
+	_, err := (&bunnydnsProvider{}).toRecordConfig(models.MustNewDomainConfig("example.com"), rec)
+	if err == nil {
+		t.Fatalf("expected error for missing Script LinkName")
 	}
 }
 
@@ -199,7 +289,7 @@ func TestToRecordConfigGeographicRouting(t *testing.T) {
 		GeolocationLongitude: &lon,
 	}
 
-	rc, err := toRecordConfig(models.MustNewDomainConfig("example.com"), rec)
+	rc, err := (&bunnydnsProvider{}).toRecordConfig(models.MustNewDomainConfig("example.com"), rec)
 	if err != nil {
 		t.Fatalf("toRecordConfig returned error: %v", err)
 	}
@@ -227,7 +317,7 @@ func TestToRecordConfigLatencyRouting(t *testing.T) {
 		LatencyZone:      "NY",
 	}
 
-	rc, err := toRecordConfig(models.MustNewDomainConfig("example.com"), rec)
+	rc, err := (&bunnydnsProvider{}).toRecordConfig(models.MustNewDomainConfig("example.com"), rec)
 	if err != nil {
 		t.Fatalf("toRecordConfig returned error: %v", err)
 	}
@@ -250,7 +340,7 @@ func TestToRecordConfigNoSmartRouting(t *testing.T) {
 		TTL:   300,
 	}
 
-	rc, err := toRecordConfig(models.MustNewDomainConfig("example.com"), rec)
+	rc, err := (&bunnydnsProvider{}).toRecordConfig(models.MustNewDomainConfig("example.com"), rec)
 	if err != nil {
 		t.Fatalf("toRecordConfig returned error: %v", err)
 	}
@@ -368,7 +458,7 @@ func TestToRecordConfigMonitorPing(t *testing.T) {
 		MonitorType: monitorPing,
 	}
 
-	rc, err := toRecordConfig(models.MustNewDomainConfig("example.com"), rec)
+	rc, err := (&bunnydnsProvider{}).toRecordConfig(models.MustNewDomainConfig("example.com"), rec)
 	if err != nil {
 		t.Fatalf("toRecordConfig returned error: %v", err)
 	}
@@ -386,7 +476,7 @@ func TestToRecordConfigMonitorHTTP(t *testing.T) {
 		MonitorType: monitorHTTP,
 	}
 
-	rc, err := toRecordConfig(models.MustNewDomainConfig("example.com"), rec)
+	rc, err := (&bunnydnsProvider{}).toRecordConfig(models.MustNewDomainConfig("example.com"), rec)
 	if err != nil {
 		t.Fatalf("toRecordConfig returned error: %v", err)
 	}
@@ -404,7 +494,7 @@ func TestToRecordConfigMonitorCNAME(t *testing.T) {
 		MonitorType: monitorPing,
 	}
 
-	rc, err := toRecordConfig(models.MustNewDomainConfig("example.com"), rec)
+	rc, err := (&bunnydnsProvider{}).toRecordConfig(models.MustNewDomainConfig("example.com"), rec)
 	if err != nil {
 		t.Fatalf("toRecordConfig returned error: %v", err)
 	}
@@ -421,7 +511,7 @@ func TestToRecordConfigNoMonitor(t *testing.T) {
 		TTL:   300,
 	}
 
-	rc, err := toRecordConfig(models.MustNewDomainConfig("example.com"), rec)
+	rc, err := (&bunnydnsProvider{}).toRecordConfig(models.MustNewDomainConfig("example.com"), rec)
 	if err != nil {
 		t.Fatalf("toRecordConfig returned error: %v", err)
 	}
@@ -460,5 +550,30 @@ func TestParseMonitorType(t *testing.T) {
 		if got != tt.want {
 			t.Errorf("parseMonitorType(%q) expected %d; got %d", tt.input, tt.want, got)
 		}
+	}
+}
+
+func TestComparableFuncIgnoresForeignMetadata(t *testing.T) {
+	// Only the bunny_* keys managed by this provider participate in the
+	// comparison; framework keys like orig_custom_type must be excluded, or
+	// custom record types would compare unequal on every run.
+	rc := &models.RecordConfig{
+		Metadata: map[string]string{
+			"orig_custom_type": "BUNNY_DNS_SCRIPT",
+			metaMonitorType:    "ping",
+		},
+	}
+	got := comparableFunc(rc)
+	if !strings.Contains(got, metaMonitorType) {
+		t.Fatalf("expected managed metadata %q in comparable %q", metaMonitorType, got)
+	}
+	if strings.Contains(got, "orig_custom_type") {
+		t.Fatalf("expected orig_custom_type excluded from comparable; got=%q", got)
+	}
+
+	// Metadata without any bunny_* key produces an empty comparable.
+	rc = &models.RecordConfig{Metadata: map[string]string{"orig_custom_type": "BUNNY_DNS_PZ"}}
+	if got := comparableFunc(rc); got != "" {
+		t.Fatalf("expected empty comparable; got=%q", got)
 	}
 }

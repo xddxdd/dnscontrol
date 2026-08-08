@@ -2139,6 +2139,7 @@ var ALIAS = rawrecordBuilder('ALIAS');
 var AZURE_ALIAS = rawrecordBuilder('AZURE_ALIAS');
 var BUNNY_DNS_PZ = rawrecordBuilder('BUNNY_DNS_PZ');
 var BUNNY_DNS_RDR = rawrecordBuilder('BUNNY_DNS_RDR');
+var BUNNY_DNS_SCRIPT = rawrecordBuilder('BUNNY_DNS_SCRIPT');
 var CAA = rawrecordBuilder('CAA', false, caaOptions);
 var CF_REDIRECT = rawrecordBuilder('CF_REDIRECT', true);
 var CF_SINGLE_REDIRECT = rawrecordBuilder(
