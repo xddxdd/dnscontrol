@@ -29,7 +29,6 @@ func (b *bunnydnsProvider) GetZoneRecords(dc *models.DomainConfig) (models.Recor
 	// Define a list of record types that are currently not supported by this provider.
 	unsupportedTypes := []recordType{
 		recordTypeFlatten,
-		recordTypeScript,
 	}
 
 	// Loop through all native records and convert them to standardized RecordConfigs
@@ -41,7 +40,7 @@ func (b *bunnydnsProvider) GetZoneRecords(dc *models.DomainConfig) (models.Recor
 		}
 
 		before := providers.BeginToRC(b.observer, "toRecordConfig", nativeRec)
-		rc, err := toRecordConfig(dc, nativeRec)
+		rc, err := b.toRecordConfig(dc, nativeRec)
 		providers.EndToRC(b.observer, "toRecordConfig", before, nativeRec, models.Records{rc}, err)
 		if err != nil {
 			return nil, err
@@ -111,6 +110,24 @@ func (b *bunnydnsProvider) GetZoneRecordsCorrections(dc *models.DomainConfig, ex
 	return corrections, actualChangeCount, nil
 }
 
+// resolveScriptID sets the script ID of a native record backing a
+// BUNNY_DNS_SCRIPT RecordConfig. Managed scripts are referenced by name and
+// code only; the ID is fetched or created as needed. This mutates external
+// state and must only be called while actually applying corrections, never
+// while generating records, and it is deliberately kept outside the
+// fromRecordConfig observation so recorded conversions stay pure.
+func (b *bunnydnsProvider) resolveScriptID(rc *models.RecordConfig, desired *record) error {
+	if rc.Type != "BUNNY_DNS_SCRIPT" {
+		return nil
+	}
+	scriptID, err := b.deployScript(scriptNameForRecord(rc), rc.GetTargetField())
+	if err != nil {
+		return err
+	}
+	desired.ScriptID = scriptID
+	return nil
+}
+
 func (b *bunnydnsProvider) mkCreateCorrection(zoneID int64, newRec *models.RecordConfig, msg string) *models.Correction {
 	return &models.Correction{
 		Msg: msg,
@@ -120,6 +137,9 @@ func (b *bunnydnsProvider) mkCreateCorrection(zoneID int64, newRec *models.Recor
 			desired, err := fromRecordConfig(newRec)
 			providers.EndToNative(b.observer, "fromRecordConfig", before, input, desired, err)
 			if err != nil {
+				return err
+			}
+			if err := b.resolveScriptID(newRec, desired); err != nil {
 				return err
 			}
 
@@ -140,6 +160,9 @@ func (b *bunnydnsProvider) mkChangeCorrection(zoneID int64, oldRec, newRec *mode
 			if err != nil {
 				return err
 			}
+			if err := b.resolveScriptID(newRec, desired); err != nil {
+				return err
+			}
 
 			return b.modifyRecord(zoneID, existingID, desired)
 		},
@@ -151,7 +174,17 @@ func (b *bunnydnsProvider) mkDeleteCorrection(zoneID int64, oldRec *models.Recor
 		Msg: msg,
 		F: func() error {
 			existingID := oldRec.Original.(int64)
-			return b.deleteRecord(zoneID, existingID)
+			if err := b.deleteRecord(zoneID, existingID); err != nil {
+				return err
+			}
+			// Deleting a BUNNY_DNS_SCRIPT record also deletes the script
+			// backing it. Only scripts created by DNSControl are removed.
+			if oldRec.Type == "BUNNY_DNS_SCRIPT" {
+				if err := b.deleteManagedScript(scriptNameForRecord(oldRec)); err != nil {
+					return err
+				}
+			}
+			return nil
 		},
 	}
 }

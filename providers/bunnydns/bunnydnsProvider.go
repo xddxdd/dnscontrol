@@ -37,6 +37,8 @@ type bunnydnsProvider struct {
 	apiKey   string
 	zones    map[string]*zone
 	observer providers.ConversionObserver
+	scripts  map[int64]*script // script ID -> script, lazily loaded
+	codes    map[int64]string  // script ID -> code, lazily loaded
 }
 
 func (b *bunnydnsProvider) SetConversionObserver(observer providers.ConversionObserver) {
@@ -55,6 +57,7 @@ func init() {
 
 	providers.RegisterCustomRecordType("BUNNY_DNS_RDR", providerName, "")
 	providers.RegisterCustomRecordType("BUNNY_DNS_PZ", providerName, "")
+	providers.RegisterCustomRecordType("BUNNY_DNS_SCRIPT", providerName, "")
 
 	providers.RegisterCredsMetadata(providerName, providers.CredsMetadata{
 		DisplayName: "Bunny DNS",
