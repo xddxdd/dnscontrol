@@ -89,6 +89,16 @@ types:
         values:
           Target: https://example.com
 
+  - name: Bunny_Dns_Script
+    codepoint: 65323
+    fields:
+      - name: Code
+        type: RawString
+    test_data:
+      - name: ""
+        values:
+          Code: export default { async fetch() {} };
+
   - name: Cf_Worker_Route
     codepoint: 65288
     fields:

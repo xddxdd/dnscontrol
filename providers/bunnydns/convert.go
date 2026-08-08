@@ -58,6 +58,11 @@ func fromRecordConfig(rc *models.RecordConfig) (*record, error) {
 		}
 		r.PullZoneID = rdata.PullZoneID
 		r.Value = ""
+	case recordTypeScript:
+		// BUNNY_DNS_SCRIPT is managed by DNSControl and referenced by name and
+		// code; its script ID is resolved only during deployment (see
+		// recordForDeployment), so it is not set here.
+		r.Value = ""
 	case recordTypeRedirect:
 		r.Value = rc.AsBUNNYDNSRDR().Target
 	default:
@@ -134,7 +139,7 @@ func fromRecordConfig(rc *models.RecordConfig) (*record, error) {
 	return &r, nil
 }
 
-func toRecordConfig(dc *models.DomainConfig, r *record) (*models.RecordConfig, error) {
+func (b *bunnydnsProvider) toRecordConfig(dc *models.DomainConfig, r *record) (*models.RecordConfig, error) {
 	rtype := recordTypeToString(r.Type)
 	label := dc.LabelFromShort(r.Name)
 
@@ -159,6 +164,14 @@ func toRecordConfig(dc *models.DomainConfig, r *record) (*models.RecordConfig, e
 			return nil, errors.New("missing Pull Zone ID (LinkName) for BUNNY_DNS_PZ")
 		}
 		rc, err = dc.NewRecordConfig(label, r.TTL, privatetypes.TypeBUNNYDNSPZ, r.LinkName)
+	case "BUNNY_DNS_SCRIPT":
+		// Script records are managed by DNSControl: the script is matched by
+		// name and the code is used as the record target.
+		code, err := b.scriptCode(r)
+		if err != nil {
+			return nil, err
+		}
+		rc, err = dc.NewRecordConfig(label, r.TTL, privatetypes.TypeBUNNYDNSSCRIPT, code)
 	case "BUNNY_DNS_RDR":
 		rc, err = dc.NewRecordConfig(label, r.TTL, privatetypes.TypeBUNNYDNSRDR, recordValue)
 	case "CAA":
@@ -218,6 +231,48 @@ func toRecordConfig(dc *models.DomainConfig, r *record) (*models.RecordConfig, e
 	return rc, nil
 }
 
+// scriptCode resolves the code of the script referenced by a native Script
+// record. Scripts are managed by DNSControl: the script is looked up by the ID
+// or name provided in LinkName and its code is used as the record target.
+func (b *bunnydnsProvider) scriptCode(r *record) (string, error) {
+	if r.LinkName == "" {
+		return "", fmt.Errorf("missing Script ID (LinkName) for BUNNY_DNS_SCRIPT")
+	}
+
+	// The API provides the ScriptId in the LinkName field as string.
+	if scriptID, err := strconv.ParseInt(r.LinkName, 10, 64); err == nil {
+		s, err := b.findScriptByID(scriptID)
+		if err != nil {
+			return "", err
+		}
+		if s == nil {
+			return "", fmt.Errorf("BUNNY_DNS_SCRIPT: script %d not found", scriptID)
+		}
+		return b.getScriptCode(scriptID)
+	}
+
+	// Fallback: LinkName may be the script name instead of the ID.
+	s, err := b.findScriptByName(r.LinkName)
+	if err != nil {
+		return "", err
+	}
+	if s == nil {
+		return "", fmt.Errorf("BUNNY_DNS_SCRIPT: script %q not found", r.LinkName)
+	}
+	return b.getScriptCode(s.ID)
+}
+
+// scriptNameForFQDN returns the name used for DNSControl-managed scripts.
+func scriptNameForFQDN(fqdn string) string {
+	return scriptNamePrefix + fqdn
+}
+
+// scriptNameForRecord returns the name used for the DNSControl-managed script
+// backing the given record.
+func scriptNameForRecord(rc *models.RecordConfig) string {
+	return scriptNameForFQDN(rc.GetLabelFQDN())
+}
+
 type recordType int
 
 const (
@@ -261,7 +316,7 @@ func recordTypeFromString(t string) recordType {
 		return recordTypeCAA
 	case "PTR":
 		return recordTypePTR
-	case "SCRIPT":
+	case "BUNNY_DNS_SCRIPT":
 		return recordTypeScript
 	case "NS":
 		return recordTypeNS
@@ -303,7 +358,7 @@ func recordTypeToString(t recordType) string {
 	case recordTypePTR:
 		return "PTR"
 	case recordTypeScript:
-		return "SCRIPT"
+		return "BUNNY_DNS_SCRIPT"
 	case recordTypeNS:
 		return "NS"
 	case recordTypeSVCB:

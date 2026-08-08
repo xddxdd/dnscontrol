@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"slices"
+	"strings"
 
 	"github.com/DNSControl/dnscontrol/v5/models"
 	"github.com/DNSControl/dnscontrol/v5/pkg/diff2"
@@ -29,7 +30,6 @@ func (b *bunnydnsProvider) GetZoneRecords(dc *models.DomainConfig) (models.Recor
 	// Define a list of record types that are currently not supported by this provider.
 	unsupportedTypes := []recordType{
 		recordTypeFlatten,
-		recordTypeScript,
 	}
 
 	// Loop through all native records and convert them to standardized RecordConfigs
@@ -41,7 +41,7 @@ func (b *bunnydnsProvider) GetZoneRecords(dc *models.DomainConfig) (models.Recor
 		}
 
 		before := providers.BeginToRC(b.observer, "toRecordConfig", nativeRec)
-		rc, err := toRecordConfig(dc, nativeRec)
+		rc, err := b.toRecordConfig(dc, nativeRec)
 		providers.EndToRC(b.observer, "toRecordConfig", before, nativeRec, models.Records{rc}, err)
 		if err != nil {
 			return nil, err
@@ -111,13 +111,33 @@ func (b *bunnydnsProvider) GetZoneRecordsCorrections(dc *models.DomainConfig, ex
 	return corrections, actualChangeCount, nil
 }
 
+// recordForDeployment converts a RecordConfig into a native record for deployment.
+// Managed scripts (BUNNY_DNS_SCRIPT) are referenced by name and code only; their
+// script ID is resolved here, fetching or creating the script as needed. This must
+// only be called while actually applying corrections, never while generating records.
+func (b *bunnydnsProvider) recordForDeployment(rc *models.RecordConfig) (*record, error) {
+	if rc.Type == "BUNNY_DNS_SCRIPT" {
+		scriptID, err := b.deployScript(scriptNameForRecord(rc), rc.GetTargetField())
+		if err != nil {
+			return nil, err
+		}
+		r, err := fromRecordConfig(rc)
+		if err != nil {
+			return nil, err
+		}
+		r.ScriptID = scriptID
+		return r, nil
+	}
+	return fromRecordConfig(rc)
+}
+
 func (b *bunnydnsProvider) mkCreateCorrection(zoneID int64, newRec *models.RecordConfig, msg string) *models.Correction {
 	return &models.Correction{
 		Msg: msg,
 		F: func() error {
 			input := models.Records{newRec}
 			before := providers.BeginToNative(b.observer, "fromRecordConfig", input)
-			desired, err := fromRecordConfig(newRec)
+			desired, err := b.recordForDeployment(newRec)
 			providers.EndToNative(b.observer, "fromRecordConfig", before, input, desired, err)
 			if err != nil {
 				return err
@@ -135,7 +155,7 @@ func (b *bunnydnsProvider) mkChangeCorrection(zoneID int64, oldRec, newRec *mode
 			existingID := oldRec.Original.(int64)
 			input := models.Records{newRec}
 			before := providers.BeginToNative(b.observer, "fromRecordConfig", input)
-			desired, err := fromRecordConfig(newRec)
+			desired, err := b.recordForDeployment(newRec)
 			providers.EndToNative(b.observer, "fromRecordConfig", before, input, desired, err)
 			if err != nil {
 				return err
@@ -156,22 +176,33 @@ func (b *bunnydnsProvider) mkDeleteCorrection(zoneID int64, oldRec *models.Recor
 	}
 }
 
+// comparableFunc feeds the provider-managed metadata (the bunny_* keys set by
+// this provider) into diff2's comparison. Other metadata keys are excluded:
+// in particular normalize stamps "orig_custom_type" onto every custom record
+// type, which would otherwise make desired and existing records compare
+// unequal on every run. Smart routing metadata only applies to A and AAAA
+// records, so it is ignored elsewhere to avoid spurious changes.
 func comparableFunc(rec *models.RecordConfig) string {
-	if rec.Type != "A" && rec.Type != "AAAA" {
-		return ""
-	}
+	smartRoutingKeys := []string{metaSmartRoutingType, metaGeolocationLatitude, metaGeolocationLongitude, metaLatencyZone}
 
-	metadata := make(map[string]string)
-	for _, key := range []string{metaSmartRoutingType, metaGeolocationLatitude, metaGeolocationLongitude, metaLatencyZone} {
-		if value, ok := rec.Metadata[key]; ok {
-			metadata[key] = value
+	var managed map[string]string
+	for k, v := range rec.Metadata {
+		if !strings.HasPrefix(k, "bunny_") {
+			continue
 		}
+		if rec.Type != "A" && rec.Type != "AAAA" && slices.Contains(smartRoutingKeys, k) {
+			continue
+		}
+		if managed == nil {
+			managed = make(map[string]string)
+		}
+		managed[k] = v
 	}
-	if len(metadata) == 0 {
+	if len(managed) == 0 {
 		return ""
 	}
 
-	result, err := json.Marshal(metadata)
+	result, err := json.Marshal(managed)
 	if err != nil {
 		printer.Warnf("BUNNY_DNS: Cannot serialize metadata of record %s", rec)
 		return ""

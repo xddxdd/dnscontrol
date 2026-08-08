@@ -10,7 +10,7 @@ import (
 func TestToRecordConfigGolden(t *testing.T) {
 	providergolden.CheckToRC(t, "toRecordConfig",
 		func(dc *models.DomainConfig, native record) (models.Records, error) {
-			rc, err := toRecordConfig(dc, &native)
+			rc, err := (&bunnydnsProvider{}).toRecordConfig(dc, &native)
 			return models.Records{rc}, err
 		})
 }
