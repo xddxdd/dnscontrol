@@ -2318,7 +2318,7 @@ func makeTests() []*TestGroup {
 				"gcore_filters":            "healthcheck,false;geodns,false;first_n,false,3",
 				"gcore_failover_protocol":  "HTTP",
 				"gcore_failover_port":      "443",
-				"gcore_failover_frequency": "30",
+				"gcore_failover_frequency": "300",
 				"gcore_failover_timeout":   "10",
 				"gcore_failover_method":    "POST",
 				"gcore_failover_url":       "/test",
