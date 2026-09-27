@@ -8,6 +8,7 @@ import (
 	"github.com/DNSControl/dnscontrol/v5/models"
 	"github.com/DNSControl/dnscontrol/v5/pkg/diff2"
 	"github.com/DNSControl/dnscontrol/v5/pkg/printer"
+	"github.com/DNSControl/dnscontrol/v5/pkg/providers"
 )
 
 func (b *bunnydnsProvider) GetZoneRecords(dc *models.DomainConfig) (models.Records, error) {
@@ -39,7 +40,9 @@ func (b *bunnydnsProvider) GetZoneRecords(dc *models.DomainConfig) (models.Recor
 			continue
 		}
 
+		before := providers.BeginToRC(b.observer, "toRecordConfig", nativeRec)
 		rc, err := toRecordConfig(dc, nativeRec)
+		providers.EndToRC(b.observer, "toRecordConfig", before, nativeRec, models.Records{rc}, err)
 		if err != nil {
 			return nil, err
 		}
@@ -112,7 +115,10 @@ func (b *bunnydnsProvider) mkCreateCorrection(zoneID int64, newRec *models.Recor
 	return &models.Correction{
 		Msg: msg,
 		F: func() error {
+			input := models.Records{newRec}
+			before := providers.BeginToNative(b.observer, "fromRecordConfig", input)
 			desired, err := fromRecordConfig(newRec)
+			providers.EndToNative(b.observer, "fromRecordConfig", before, input, desired, err)
 			if err != nil {
 				return err
 			}
@@ -127,7 +133,10 @@ func (b *bunnydnsProvider) mkChangeCorrection(zoneID int64, oldRec, newRec *mode
 		Msg: msg,
 		F: func() error {
 			existingID := oldRec.Original.(int64)
+			input := models.Records{newRec}
+			before := providers.BeginToNative(b.observer, "fromRecordConfig", input)
 			desired, err := fromRecordConfig(newRec)
+			providers.EndToNative(b.observer, "fromRecordConfig", before, input, desired, err)
 			if err != nil {
 				return err
 			}
